@@ -1,0 +1,94 @@
+#!/bin/bash
+
+function flac2alac {
+	filename=$(basename "$1" .flac)
+	dir=$(dirname "$1")
+	artformat="$(metaflac --export-picture-to=- "$1" | file --mime --brief - | awk '{split($1,arr,";"); print arr[1]}')"
+	artfile=".art.${filename}"
+
+	echo "Convert $1 ..."
+
+	if [ "$artformat" != "application/x-empty" ]; then
+		if [ "$artformat" != "image/png" ] && [ "$artformat" != "image/jpeg" ]; then
+			echo "Unknown embedded album art format ${artformat}. Abort." 1>&2
+			exit 1
+		fi
+		metaflac --export-picture-to="${dir}/${artfile}" "$1"
+	fi
+
+	ffmpeg $ffmpeg_general_opt -i "$1" -vn -acodec alac "${dir}/${filename}.m4a"
+	if [ $? -ne 0 ]; then
+		echo "Abort." 2>&1
+		exit $?
+	fi
+
+	if [ -f "${dir}/${artfile}" ]; then
+		atomicparsley "${dir}/${filename}.m4a" --artwork "${dir}/${artfile}" -W
+		fail=$?
+		rm -f "${dir}/${artfile}"
+		if [ $fail -ne 0 ]; then
+			echo "Fail to set artwork for ${dir}/${filename}.m4a. Abort." 1>&2
+			exit 1
+		fi
+	fi
+}
+
+function convert_folder {
+	pushd "$1" > /dev/null
+	for filename in *.flac; do
+		flac2alac "$filename"
+	done
+	popd > /dev/null
+}
+
+function usage() {
+	echo "Convert flac file to alac." 1>&2
+	echo "Usage: $(basename "$0") [-h] <file|dir>..." 1>&2
+	echo "" 1>&2
+	echo "OPTIONS:" 1>&2
+	echo "    -h: print help" 1>&2
+	echo "    -v: log verbosely. this displays ffmpeg logs" 1>&2
+	echo "    -y: always overwrite existing files" 1>&2
+	exit 1
+}
+
+if [ $# -eq 0 ]; then
+	usage
+fi
+
+verbose=0
+overwrite=0
+while getopts 'hvy' arg; do
+	case $arg in
+		h)
+			usage
+			;;
+		v)
+			verbose=1
+			;;
+		y)
+			overwrite=1
+			;;
+		?)
+			usage
+			;;
+	esac
+done
+
+ffmpeg_general_opt="-stats"
+if [ $verbose -eq 0 ]; then
+	ffmpeg_general_opt="$ffmpeg_general_opt -loglevel fatal"
+fi
+if [ $overwrite -eq 1 ]; then
+	ffmpeg_general_opt="$ffmpeg_general_opt -y"
+fi
+
+shift $(($OPTIND - 1))
+for arg in "$@"; do
+	if [ -d "$arg" ]; then
+		convert_folder "$arg"
+	fi
+	if [ -f "$arg" ]; then
+		flac2alac "$arg"
+	fi
+done
