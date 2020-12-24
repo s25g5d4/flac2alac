@@ -20,7 +20,7 @@ Usage
 
 ```
 Convert flac file to alac.
-Usage: flac2alac [-h] <file|dir>...
+Usage: flac2alac [-hvy] <file|dir>...
 
 OPTIONS:
     -h: print help

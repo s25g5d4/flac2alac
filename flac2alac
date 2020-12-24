@@ -43,7 +43,7 @@ function convert_folder {
 
 function usage() {
 	echo "Convert flac file to alac." 1>&2
-	echo "Usage: $(basename "$0") [-h] <file|dir>..." 1>&2
+	echo "Usage: $(basename "$0") [-hvy] <file|dir>..." 1>&2
 	echo "" 1>&2
 	echo "OPTIONS:" 1>&2
 	echo "    -h: print help" 1>&2
